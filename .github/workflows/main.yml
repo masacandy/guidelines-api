@@ -21,6 +21,10 @@ jobs:
         RAILS_DATABASE_PASSWORD: password
     steps:
       - uses: actions/checkout@v1
+      - uses: actions/cache@v1
+        with:
+          path: vendor/bundle
+          key: bundle-${{ hashFiles('**/Gemfile.lock') }}
       - name: Prepare bundler
         run: |
           gem install bundler
