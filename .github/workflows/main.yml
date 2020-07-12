@@ -1,39 +1,36 @@
-name: Ruby
-
+name: Ruby CI
 on: [push]
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     services:
       postgres:
-        image: postgres:10.3
-        ports: ["5432:5432"]
+        image: postgres:12
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: pguser
+          POSTGRES_PASSWORD: password
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    container:
+      image: ruby:2.7.1
+      env:
+        RAILS_ENV: test
+        RAILS_DATABASE_HOST: postgres # this is needed
+        RAILS_DATABASE_USER: pguser
+        RAILS_DATABASE_PASSWORD: password
     steps:
-    - uses: actions/checkout@v1
-    - name: Set up Ruby 2.7.1
-      uses: actions/setup-ruby@v1
-      with:
-        ruby-version: 2.7.1
-    - name: Install PostgreSQL client
-      run: |
-        sudo apt-get -yqq install libpq-dev dialog apt-utils
-    - name: Build App
-      env:
-        RAILS_ENV: test
-        DATABASE_URL: postgresql://postgres@localhost:5432/postgres?encoding=utf8&pool=5&timeout=5000
-      run: |
-        gem install bundler:2.1.4
-        cd docker/api/api
-        bundle install --quiet --jobs 4 --retry 3
-        bin/rails db:migrate:reset RAILS_ENV=test
-    - name: Build and test with Rspc
-      env:
-        RAILS_ENV: test
-        DATABASE_URL: postgresql://postgres@localhost:5432/postgres?encoding=utf8&pool=5&timeout=5000
-      run: |
-        cd docker/api/api
-        bundle exec rspec
+      - uses: actions/checkout@v1
+      - name: Prepare bundler
+        run: |
+          gem install bundler
+          bundle install --jobs 4 --retry 3
+        working-directory: ./src
+      - name: Prepare database
+        run: |
+          bin/rails db:create
+          bin/rails db:schema:load
+        working-directory: ./src
+      - name: Run test
+        run: bin/rspec
+        working-directory: ./src
