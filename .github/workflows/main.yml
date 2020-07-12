@@ -1,0 +1,39 @@
+name: Ruby
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:10.3
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Ruby 2.7.1
+      uses: actions/setup-ruby@v1
+      with:
+        ruby-version: 2.7.1
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get -yqq install libpq-dev dialog apt-utils
+    - name: Build App
+      env:
+        RAILS_ENV: test
+        DATABASE_URL: postgresql://postgres@localhost:5432/postgres?encoding=utf8&pool=5&timeout=5000
+      run: |
+        gem install bundler:2.1.4
+        cd docker/api/api
+        bundle install --quiet --jobs 4 --retry 3
+        bin/rails db:migrate:reset RAILS_ENV=test
+    - name: Build and test with Rspc
+      env:
+        RAILS_ENV: test
+        DATABASE_URL: postgresql://postgres@localhost:5432/postgres?encoding=utf8&pool=5&timeout=5000
+      run: |
+        cd docker/api/api
+        bundle exec rspec
